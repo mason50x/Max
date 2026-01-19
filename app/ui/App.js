@@ -15,6 +15,9 @@ const App = () => {
   const setScreen = useStore((state) => state.setScreen);
   const [showHelp, setShowHelp] = useState(false);
 
+  // Screen order for arrow navigation
+  const screenOrder = [screens.SCAN, screens.DUPLICATES, screens.JUNK, screens.LARGE, screens.REVIEW];
+
   // Handle keyboard input
   useInput((input, key) => {
     // Quit on 'q' or Ctrl+C
@@ -32,6 +35,33 @@ const App = () => {
     // Close help on escape
     if (key.escape && showHelp) {
       setShowHelp(false);
+      return;
+    }
+
+    // Arrow keys for sidebar navigation
+    if (key.upArrow && key.shift) {
+      const currentIndex = screenOrder.indexOf(currentScreen);
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : screenOrder.length - 1;
+      setScreen(screenOrder[prevIndex]);
+      return;
+    }
+    if (key.downArrow && key.shift) {
+      const currentIndex = screenOrder.indexOf(currentScreen);
+      const nextIndex = currentIndex < screenOrder.length - 1 ? currentIndex + 1 : 0;
+      setScreen(screenOrder[nextIndex]);
+      return;
+    }
+
+    // Tab / Shift+Tab for screen navigation
+    if (key.tab) {
+      const currentIndex = screenOrder.indexOf(currentScreen);
+      if (key.shift) {
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : screenOrder.length - 1;
+        setScreen(screenOrder[prevIndex]);
+      } else {
+        const nextIndex = currentIndex < screenOrder.length - 1 ? currentIndex + 1 : 0;
+        setScreen(screenOrder[nextIndex]);
+      }
       return;
     }
 
