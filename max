@@ -1,0 +1,37 @@
+#!/usr/bin/env node
+
+// Enter alternate screen buffer (fullscreen mode)
+process.stdout.write('\x1b[?1049h');
+// Hide cursor
+process.stdout.write('\x1b[?25l');
+
+// Cleanup function for graceful exit
+const cleanup = () => {
+  // Show cursor
+  process.stdout.write('\x1b[?25h');
+  // Exit alternate screen buffer
+  process.stdout.write('\x1b[?1049l');
+  process.exit(0);
+};
+
+// Handle various exit signals
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+process.on('exit', () => {
+  process.stdout.write('\x1b[?25h');
+  process.stdout.write('\x1b[?1049l');
+});
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  cleanup();
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+
+// Import and run the app
+import('./app/index.js').catch((err) => {
+  cleanup();
+  console.error('Failed to start Max:', err);
+  process.exit(1);
+});
