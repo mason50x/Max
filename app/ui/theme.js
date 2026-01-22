@@ -107,6 +107,7 @@ export const icons = {
   junk: '🧹',
   large: '📦',
   clock: '⏱',
+  settings: '⚙️',
 };
 
 // Screen names for navigation
@@ -116,6 +117,7 @@ export const screens = {
   JUNK: 'junk',
   LARGE: 'large',
   REVIEW: 'review',
+  SETTINGS: 'settings',
 };
 
 export default { colors, style, box, icons, screens };

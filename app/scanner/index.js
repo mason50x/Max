@@ -24,59 +24,72 @@ export async function startScan(options = {}) {
 
   try {
     // Phase 1: Collect all files
-    store.updateScanProgress(5, 0, 'Starting file traversal...');
+    store.updateScanProgress(5, 0, 'Starting file traversal...', { scanStep: 1 });
 
     const allFiles = [];
     let filesScanned = 0;
+    let lastDir = '';
 
     for await (const file of traverseDirectory(rootPath)) {
       allFiles.push(file);
       filesScanned++;
 
+      // Extract directory from path
+      const dir = file.path.substring(0, file.path.lastIndexOf('/'));
+
       // Update progress periodically
-      if (filesScanned % 500 === 0) {
+      if (filesScanned % 100 === 0) {
         // Progress from 5% to 40% during traversal
         const progress = Math.min(40, 5 + (filesScanned / 1000));
-        store.updateScanProgress(progress, filesScanned, `Scanning: ${filesScanned.toLocaleString()} files found`);
+        store.updateScanProgress(
+          progress,
+          filesScanned,
+          `Scanning: ${filesScanned.toLocaleString()} files found`,
+          { currentFile: file.path, currentDir: dir, scanStep: 1 }
+        );
+        lastDir = dir;
       }
     }
 
-    store.updateScanProgress(40, filesScanned, `Found ${filesScanned.toLocaleString()} files. Analyzing...`);
+    store.updateScanProgress(40, filesScanned, `Found ${filesScanned.toLocaleString()} files. Analyzing...`, { scanStep: 2 });
 
     // Phase 2: Find duplicates (40% - 70%)
     let duplicates = [];
     if (!skipDuplicates) {
-      store.updateScanProgress(40, filesScanned, 'Finding duplicate files...');
+      store.updateScanProgress(40, filesScanned, 'Finding duplicate files...', { scanStep: 2, currentDir: 'Analyzing file hashes...' });
 
       duplicates = await findDuplicates(allFiles, (progress) => {
         const percent = 40 + (progress.phase / 3) * 30;
-        store.updateScanProgress(percent, filesScanned, progress.message);
+        store.updateScanProgress(percent, filesScanned, progress.message, { scanStep: 2 });
       });
     }
 
     // Phase 3: Find junk files (70% - 85%)
     let junkFiles = [];
     if (!skipJunk) {
-      store.updateScanProgress(70, filesScanned, 'Identifying junk files...');
+      store.updateScanProgress(70, filesScanned, 'Identifying junk files...', { scanStep: 3, currentDir: 'Matching junk patterns...' });
 
       junkFiles = await findJunkFiles(allFiles, (progress) => {
         const percent = 70 + (progress.processed / progress.total) * 15;
-        store.updateScanProgress(percent, filesScanned, progress.message);
+        store.updateScanProgress(percent, filesScanned, progress.message, { scanStep: 3 });
       });
     }
 
     // Phase 4: Find large files (85% - 95%)
     let largeFiles = [];
     if (!skipLarge) {
-      store.updateScanProgress(85, filesScanned, 'Finding large files...');
+      store.updateScanProgress(85, filesScanned, 'Finding large files...', { scanStep: 4, currentDir: 'Checking file sizes...' });
 
       largeFiles = await findLargeFiles(allFiles, {
         onProgress: (progress) => {
           const percent = 85 + (progress.processed / progress.total) * 10;
-          store.updateScanProgress(percent, filesScanned, progress.message);
+          store.updateScanProgress(percent, filesScanned, progress.message, { scanStep: 4 });
         },
       });
     }
+
+    // Finalizing
+    store.updateScanProgress(95, filesScanned, 'Finalizing results...', { scanStep: 5, currentDir: 'Preparing summary...' });
 
     // Calculate total size of all files
     const totalSize = allFiles.reduce((sum, f) => sum + f.size, 0);

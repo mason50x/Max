@@ -1,83 +1,73 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useStore } from '../../store.js';
-import { colors, icons, screens } from '../theme.js';
-import FileList from '../components/FileList.js';
-import FilePreview from '../components/FilePreview.js';
+import { colors, icons } from '../theme.js';
 import { filesize } from 'filesize';
+
+const ITEMS_PER_PAGE = 8;
 
 const DuplicatesScreen = () => {
   const duplicates = useStore((state) => state.duplicates);
   const selectedDuplicates = useStore((state) => state.selectedDuplicates);
   const toggleDuplicateSelection = useStore((state) => state.toggleDuplicateSelection);
   const selectAllDuplicates = useStore((state) => state.selectAllDuplicates);
+  const clearAllSelections = useStore((state) => state.clearAllSelections);
   const scanStatus = useStore((state) => state.scanStatus);
 
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [page, setPage] = useState(0);
   const [expandedGroup, setExpandedGroup] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
 
-  // Flatten duplicates for display
-  const flattenedItems = [];
-  duplicates.forEach((group, groupIndex) => {
-    // Group header
-    flattenedItems.push({
-      type: 'group',
-      groupIndex,
-      hash: group.hash,
-      fileCount: group.files.length,
-      totalSize: group.files.reduce((sum, f) => sum + f.size, 0),
-      expanded: expandedGroup === groupIndex,
-    });
+  // Calculate total duplicates and size
+  const totalGroups = duplicates.length;
+  const totalDupeFiles = duplicates.reduce((acc, g) => acc + g.files.length - 1, 0);
+  const totalDupeSize = duplicates.reduce((acc, g) => {
+    return acc + g.files.slice(1).reduce((sum, f) => sum + f.size, 0);
+  }, 0);
 
-    // Files in group (if expanded)
-    if (expandedGroup === groupIndex) {
-      group.files.forEach((file, fileIndex) => {
-        flattenedItems.push({
-          type: 'file',
-          groupIndex,
-          fileIndex,
-          path: file.path,
-          size: file.size,
-          modified: file.modified,
-          isOriginal: fileIndex === 0,
-          isSelected: selectedDuplicates.has(file.path),
-        });
-      });
-    }
-  });
+  const totalPages = Math.ceil(totalGroups / ITEMS_PER_PAGE);
+  const visibleGroups = duplicates.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
   // Handle keyboard input
   useInput((input, key) => {
-    if (flattenedItems.length === 0) return;
-
-    if (key.upArrow) {
-      setSelectedIndex((i) => Math.max(0, i - 1));
+    // Pagination
+    if (input === 'n' || input === 'N' || key.rightArrow) {
+      setPage((p) => Math.min(totalPages - 1, p + 1));
+      setExpandedGroup(null);
     }
-    if (key.downArrow) {
-      setSelectedIndex((i) => Math.min(flattenedItems.length - 1, i + 1));
-    }
-
-    const currentItem = flattenedItems[selectedIndex];
-
-    // Enter to expand/collapse group
-    if (key.return && currentItem?.type === 'group') {
-      setExpandedGroup(expandedGroup === currentItem.groupIndex ? null : currentItem.groupIndex);
+    if (input === 'p' || input === 'P' || key.leftArrow) {
+      setPage((p) => Math.max(0, p - 1));
+      setExpandedGroup(null);
     }
 
-    // Space to toggle selection
-    if (input === ' ' && currentItem?.type === 'file' && !currentItem.isOriginal) {
-      toggleDuplicateSelection(currentItem.path);
+    // Expand/collapse with number keys 1-8
+    const num = parseInt(input);
+    if (num >= 1 && num <= ITEMS_PER_PAGE) {
+      const idx = num - 1;
+      if (idx < visibleGroups.length) {
+        setExpandedGroup(expandedGroup === idx ? null : idx);
+      }
     }
 
-    // 'a' to select all duplicates
+    // Select all duplicates in expanded group
+    if (input === 's' || input === 'S') {
+      if (expandedGroup !== null && visibleGroups[expandedGroup]) {
+        const group = visibleGroups[expandedGroup];
+        group.files.slice(1).forEach((f) => {
+          if (!selectedDuplicates.has(f.path)) {
+            toggleDuplicateSelection(f.path);
+          }
+        });
+      }
+    }
+
+    // Select all
     if (input === 'a' || input === 'A') {
       selectAllDuplicates();
     }
 
-    // 'p' to preview
-    if (input === 'p' || input === 'P') {
-      setShowPreview(!showPreview);
+    // Clear selections
+    if (input === 'c' || input === 'C') {
+      clearAllSelections();
     }
   });
 
@@ -88,54 +78,24 @@ const DuplicatesScreen = () => {
     }, 0);
   }, 0);
 
-  // Get current selected file for preview
-  const currentItem = flattenedItems[selectedIndex];
-  const previewPath = currentItem?.type === 'file' ? currentItem.path : null;
-
   if (scanStatus !== 'complete') {
     return React.createElement(
       Box,
       { flexDirection: 'column', paddingTop: 1 },
-      React.createElement(
-        Text,
-        { bold: true, color: colors.text },
-        icons.duplicate,
-        ' Duplicates'
-      ),
+      React.createElement(Text, { bold: true, color: colors.text }, icons.duplicate, ' Duplicates'),
       React.createElement(Text, null, ''),
-      React.createElement(
-        Text,
-        { color: colors.textMuted },
-        'Run a scan first to find duplicate files.'
-      ),
-      React.createElement(Text, null, ''),
-      React.createElement(
-        Text,
-        { color: colors.textDim },
-        'Press ',
-        React.createElement(Text, { color: colors.accent }, '1'),
-        ' to go to Scan screen'
-      )
+      React.createElement(Text, { color: colors.textMuted }, 'Run a scan first to find duplicate files.'),
+      React.createElement(Text, { color: colors.textDim }, 'Press ', React.createElement(Text, { color: colors.accent }, '1'), ' to go to Scan')
     );
   }
 
-  if (duplicates.length === 0) {
+  if (totalGroups === 0) {
     return React.createElement(
       Box,
       { flexDirection: 'column', paddingTop: 1 },
-      React.createElement(
-        Text,
-        { bold: true, color: colors.text },
-        icons.duplicate,
-        ' Duplicates'
-      ),
+      React.createElement(Text, { bold: true, color: colors.text }, icons.duplicate, ' Duplicates'),
       React.createElement(Text, null, ''),
-      React.createElement(
-        Text,
-        { color: colors.success },
-        icons.check,
-        ' No duplicate files found!'
-      )
+      React.createElement(Text, { color: colors.success }, icons.check, ' No duplicate files found!')
     );
   }
 
@@ -143,101 +103,115 @@ const DuplicatesScreen = () => {
     Box,
     { flexDirection: 'column', paddingTop: 1 },
 
-    // Header
+    // Header with stats
     React.createElement(
       Box,
-      { justifyContent: 'space-between' },
+      { marginBottom: 1 },
       React.createElement(
         Text,
         { bold: true, color: colors.text },
-        icons.duplicate,
-        ' Duplicates ',
-        React.createElement(Text, { color: colors.textMuted }, `(${duplicates.length} groups)`)
-      ),
+        icons.duplicate, ' Duplicates  ',
+        React.createElement(Text, { color: colors.textMuted }, `${totalGroups} groups • ${totalDupeFiles} files • ${filesize(totalDupeSize)}`)
+      )
+    ),
+
+    // Selection info
+    React.createElement(
+      Box,
+      { marginBottom: 1 },
       React.createElement(
         Text,
         { color: colors.accent },
         `Selected: ${selectedDuplicates.size} files (${filesize(selectedSize)})`
       )
     ),
-    React.createElement(Text, null, ''),
 
-    // Main content area
+    // Table header
     React.createElement(
       Box,
-      { flexDirection: 'row', flexGrow: 1 },
-
-      // File list
-      React.createElement(
-        Box,
-        { flexDirection: 'column', width: showPreview ? '50%' : '100%' },
-        ...flattenedItems.map((item, index) => {
-          const isHighlighted = index === selectedIndex;
-
-          if (item.type === 'group') {
-            return React.createElement(
-              Text,
-              {
-                key: `group-${item.groupIndex}`,
-                color: isHighlighted ? colors.primaryBright : colors.text,
-                backgroundColor: isHighlighted ? colors.primary : undefined,
-              },
-              item.expanded ? '▼ ' : '▶ ',
-              `Group ${item.groupIndex + 1}: ${item.fileCount} files `,
-              React.createElement(Text, { color: colors.textMuted }, `(${filesize(item.totalSize)} each)`)
-            );
-          }
-
-          // File item
-          const checkbox = item.isOriginal
-            ? React.createElement(Text, { color: colors.success }, ' ★ ')
-            : item.isSelected
-            ? React.createElement(Text, { color: colors.accent }, ' ✓ ')
-            : '   ';
-
-          const displayPath = item.path.replace(process.env.HOME, '~');
-          const truncatedPath = displayPath.length > 50
-            ? '...' + displayPath.slice(-47)
-            : displayPath;
-
-          return React.createElement(
-            Text,
-            {
-              key: item.path,
-              color: isHighlighted ? colors.text : item.isOriginal ? colors.success : colors.textMuted,
-              backgroundColor: isHighlighted ? colors.primary : undefined,
-            },
-            '  ',
-            checkbox,
-            truncatedPath,
-            item.isOriginal
-              ? React.createElement(Text, { color: colors.success }, ' (original)')
-              : ''
-          );
-        })
-      ),
-
-      // Preview panel
-      showPreview && previewPath
-        ? React.createElement(FilePreview, { path: previewPath, width: '50%' })
-        : null
+      { marginBottom: 0 },
+      React.createElement(Text, { color: colors.textDim }, '#  Size        Files  Status')
     ),
+    React.createElement(Text, { color: colors.border }, '─'.repeat(50)),
 
-    // Footer hints
-    React.createElement(Text, null, ''),
+    // Groups list
+    ...visibleGroups.map((group, idx) => {
+      const groupNum = idx + 1;
+      const isExpanded = expandedGroup === idx;
+      const dupeCount = group.files.length - 1;
+      const selectedInGroup = group.files.filter((f) => selectedDuplicates.has(f.path)).length;
+
+      const elements = [
+        // Group row
+        React.createElement(
+          Box,
+          { key: `group-${idx}`, flexDirection: 'column' },
+          React.createElement(
+            Text,
+            { color: isExpanded ? colors.primaryBright : colors.text },
+            React.createElement(Text, { color: colors.accent }, `${groupNum}. `),
+            filesize(group.files[0].size).padEnd(10),
+            `  ${group.files.length}      `,
+            selectedInGroup > 0
+              ? React.createElement(Text, { color: colors.success }, `${selectedInGroup} selected`)
+              : React.createElement(Text, { color: colors.textDim }, 'none selected')
+          )
+        ),
+      ];
+
+      // Expanded view - show files
+      if (isExpanded) {
+        group.files.forEach((file, fileIdx) => {
+          const isOriginal = fileIdx === 0;
+          const isSelected = selectedDuplicates.has(file.path);
+          const displayPath = file.path.replace(process.env.HOME, '~');
+          const shortPath = displayPath.length > 45 ? '...' + displayPath.slice(-42) : displayPath;
+
+          elements.push(
+            React.createElement(
+              Text,
+              { key: file.path, color: isOriginal ? colors.success : isSelected ? colors.accent : colors.textMuted },
+              '   ',
+              isOriginal ? '★ ' : isSelected ? '✓ ' : '  ',
+              shortPath,
+              isOriginal ? ' (original)' : ''
+            )
+          );
+        });
+        elements.push(
+          React.createElement(
+            Text,
+            { key: `hint-${idx}`, color: colors.textDim },
+            '   Press ', React.createElement(Text, { color: colors.accent }, 's'), ' to select all duplicates in this group'
+          )
+        );
+      }
+
+      return elements;
+    }).flat(),
+
+    // Pagination
+    React.createElement(Text, { color: colors.border }, '─'.repeat(50)),
     React.createElement(
-      Text,
-      { color: colors.textDim },
-      React.createElement(Text, { color: colors.accent }, 'Enter'),
-      ' expand  ',
-      React.createElement(Text, { color: colors.accent }, 'Space'),
-      ' select  ',
-      React.createElement(Text, { color: colors.accent }, 'a'),
-      ' all  ',
-      React.createElement(Text, { color: colors.accent }, 'p'),
-      ' preview  ',
-      React.createElement(Text, { color: colors.accent }, '★'),
-      ' = original'
+      Box,
+      { justifyContent: 'space-between', marginTop: 0 },
+      React.createElement(
+        Text,
+        { color: colors.textMuted },
+        `Page ${page + 1}/${totalPages}`
+      ),
+      React.createElement(
+        Text,
+        { color: colors.textDim },
+        React.createElement(Text, { color: colors.accent }, '←/→'),
+        ' page  ',
+        React.createElement(Text, { color: colors.accent }, '1-8'),
+        ' expand  ',
+        React.createElement(Text, { color: colors.accent }, 'a'),
+        ' all  ',
+        React.createElement(Text, { color: colors.accent }, 'c'),
+        ' clear'
+      )
     )
   );
 };

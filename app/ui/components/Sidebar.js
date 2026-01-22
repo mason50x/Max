@@ -10,6 +10,7 @@ const menuItems = [
   { key: '3', screen: screens.JUNK, label: 'Junk Files', icon: icons.junk },
   { key: '4', screen: screens.LARGE, label: 'Large Files', icon: icons.large },
   { key: '5', screen: screens.REVIEW, label: 'Review', icon: icons.trash },
+  { key: '6', screen: screens.SETTINGS, label: 'Settings', icon: icons.settings },
 ];
 
 const Sidebar = ({ width }) => {
@@ -66,9 +67,8 @@ const Sidebar = ({ width }) => {
           {
             color: isActive ? colors.primaryBright : colors.textMuted,
             bold: isActive,
-            backgroundColor: isActive ? colors.primary : undefined,
           },
-          isActive ? ' ' : ' ',
+          isActive ? '▶ ' : '  ',
           React.createElement(
             Text,
             { color: isActive ? colors.accentBright : colors.accent },
@@ -76,7 +76,7 @@ const Sidebar = ({ width }) => {
           ),
           ' ',
           item.icon,
-          ' ',
+          '  ',
           item.label.padEnd(10),
           counts.total > 0
             ? React.createElement(
@@ -84,8 +84,7 @@ const Sidebar = ({ width }) => {
                 { color: isActive ? colors.text : colors.textDim },
                 ` ${counts.total}`
               )
-            : '',
-          isActive ? ' ' : ''
+            : ''
         )
       );
     }),

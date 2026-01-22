@@ -6,6 +6,10 @@ export const useStore = create((set, get) => ({
   currentScreen: screens.SCAN,
   setScreen: (screen) => set({ currentScreen: screen }),
 
+  // Settings
+  theme: 'default',
+  setTheme: (theme) => set({ theme }),
+
   // Scan state
   isScanning: false,
   scanProgress: 0,
@@ -13,6 +17,9 @@ export const useStore = create((set, get) => ({
   scanMessage: '',
   filesScanned: 0,
   totalSize: 0,
+  currentFile: '',
+  currentDir: '',
+  scanStep: 1,
   diskInfo: {
     total: 0,
     used: 0,
@@ -40,12 +47,18 @@ export const useStore = create((set, get) => ({
     scanProgress: 0,
     filesScanned: 0,
     scanMessage: 'Starting scan...',
+    currentFile: '',
+    currentDir: '',
+    scanStep: 1,
   }),
 
-  updateScanProgress: (progress, filesScanned, message) => set({
+  updateScanProgress: (progress, filesScanned, message, extra = {}) => set({
     scanProgress: progress,
     filesScanned,
     scanMessage: message || get().scanMessage,
+    currentFile: extra.currentFile || get().currentFile,
+    currentDir: extra.currentDir || get().currentDir,
+    scanStep: extra.scanStep || get().scanStep,
   }),
 
   completeScan: (results) => set({

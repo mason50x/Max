@@ -28,20 +28,14 @@ const HelpOverlay = ({ onClose }) => {
       React.createElement(
         Text,
         { color: colors.text },
-        React.createElement(Text, { color: colors.accent }, '1-5'),
+        React.createElement(Text, { color: colors.accent }, '↑/↓'),
         '     Switch screens'
       ),
       React.createElement(
         Text,
         { color: colors.text },
-        React.createElement(Text, { color: colors.accent }, 'Tab'),
-        '     Next screen'
-      ),
-      React.createElement(
-        Text,
-        { color: colors.text },
-        React.createElement(Text, { color: colors.accent }, '↑/↓'),
-        '     Navigate list'
+        React.createElement(Text, { color: colors.accent }, '1-6'),
+        '     Jump to screen'
       ),
       React.createElement(
         Text,
@@ -159,9 +153,9 @@ const Layout = ({ children, showHelp, setShowHelp }) => {
         { color: colors.textMuted },
         React.createElement(Text, { color: colors.accent }, '?'),
         ' Help  ',
-        React.createElement(Text, { color: colors.accent }, 'Tab'),
-        '/⇧Tab Nav  ',
-        React.createElement(Text, { color: colors.accent }, '1-5'),
+        React.createElement(Text, { color: colors.accent }, '↑↓'),
+        ' Navigate  ',
+        React.createElement(Text, { color: colors.accent }, '1-6'),
         ' Jump  ',
         React.createElement(Text, { color: colors.accent }, 'q'),
         ' Quit'
